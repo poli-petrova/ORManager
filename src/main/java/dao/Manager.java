@@ -82,7 +82,7 @@ public class Manager implements ORManager {
     }
 
     @Override
-    public <T> Optional<T> findByID(Serializable id, Class<T> cls) throws Exception {    // READ
+    public <T> Optional<T> findByID(Serializable id, Class<T> cls) {    // READ
         Optional<T> optional = Optional.empty();
 
         if (cls.isAnnotationPresent(Entity.class)) {
@@ -90,7 +90,6 @@ public class Manager implements ORManager {
             var meta = MetaInfo.of(cls);
             String tableName = meta.tableName;
             Field primaryKey = meta.primaryKey.field;
-            List<MetaInfo.ColumnInfo> fields = meta.columns;
 
             StringBuilder sb = new StringBuilder();
             sb.append("SELECT * FROM ").append(tableName);
@@ -106,7 +105,6 @@ public class Manager implements ORManager {
             try {
                 PreparedStatement preparedStatement = connection.prepareStatement(sb.toString());
                 ResultSet resultSet = preparedStatement.executeQuery();
-//                resultSet.next();
 
                 if (!resultSet.next()) return optional;
 
@@ -133,7 +131,7 @@ public class Manager implements ORManager {
     }
 
     @Override
-    public <T> List<T> findAll(Class<T> cls) throws SQLException {
+    public <T> List<T> findAll(Class<T> cls) {
         List<T> result = new ArrayList<>();
         if (cls.isAnnotationPresent(Entity.class)) {
 
@@ -142,13 +140,16 @@ public class Manager implements ORManager {
             Field primaryKey = meta.primaryKey.field;
             List<MetaInfo.ColumnInfo> fields = meta.columns;
 
-            StringBuilder selectQuery = new StringBuilder("SELECT ");
-            selectQuery.append(primaryKey.getName());
-            fields.forEach((field) -> selectQuery.append(", ").append(field.columnName));
-            selectQuery.append(" FROM ").append(tableName);
+//            StringBuilder selectQuery = new StringBuilder("SELECT ");
+//            selectQuery.append(primaryKey.getName());
+//            fields.forEach((field) -> selectQuery.append(", ").append(field.columnName));
+//            selectQuery.append(" FROM ").append(tableName);
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("SELECT * FROM ").append(tableName);
 
             try {
-                PreparedStatement preparedStatement = connection.prepareStatement(selectQuery.toString());
+                PreparedStatement preparedStatement = connection.prepareStatement(sb.toString());
                 ResultSet resultSet = preparedStatement.executeQuery();
                 while (resultSet.next()) {
                     T obj = cls.getConstructor().newInstance();
@@ -186,13 +187,14 @@ public class Manager implements ORManager {
             String tableName = meta.tableName;
             String id = meta.primaryKey.getValue(o).toString();
             Field primaryKey = meta.primaryKey.field;
-            List<MetaInfo.ColumnInfo> fields = meta.columns;
 
-            StringBuilder selectQuery = new StringBuilder("SELECT ");
-            selectQuery.append(primaryKey.getName());
-            fields.forEach((field) -> selectQuery.append(", ").append(field.columnName));
-            selectQuery.append(" FROM ").append(tableName);
-            selectQuery.append(" WHERE id = ").append(id).append(";");
+//            StringBuilder selectQuery = new StringBuilder("SELECT ");
+//            selectQuery.append(primaryKey.getName());
+//            fields.forEach((field) -> selectQuery.append(", ").append(field.columnName));
+//            selectQuery.append(" FROM ").append(tableName);
+//            selectQuery.append(" WHERE id = ").append(id).append(";");
+            StringBuilder sb = new StringBuilder();
+            sb.append("SELECT * FROM ").append(tableName).append(" WHERE id = ").append(id).append(";");
 
             try {
                 res = (T) o.getClass().getConstructor().newInstance();
@@ -201,15 +203,13 @@ public class Manager implements ORManager {
             }
 
             try {
-                PreparedStatement preparedStatement = connection.prepareStatement(selectQuery.toString());
+                PreparedStatement preparedStatement = connection.prepareStatement(sb.toString());
                 ResultSet resultSet = preparedStatement.executeQuery();
-                resultSet.next();
 
-                primaryKey.setAccessible(true);
-                primaryKey.set(res, resultSet.getInt(primaryKey.getName()));
+                if (!resultSet.next()) return o;
 
                 for (Field field : o.getClass().getDeclaredFields()) {
-                    if (field.isAnnotationPresent(Column.class)) {
+                    if (field.isAnnotationPresent(Column.class) && !field.isAnnotationPresent(Id.class)) {
                         field.setAccessible(true);
 
                         if (field.getType() == int.class) {
@@ -238,8 +238,7 @@ public class Manager implements ORManager {
             List<MetaInfo.ColumnInfo> fields = meta.columns;
 
             StringBuilder sb = new StringBuilder();
-            sb.append("SELECT * FROM ").append(tableName);
-            sb.append(" WHERE id = ").append(idFieldValue).append(";");
+            sb.append("SELECT * FROM ").append(tableName).append(" WHERE id = ").append(idFieldValue).append(";");
 
             try (Connection connection = ConnectionFactory.getInstance().connect();
                  PreparedStatement ps = connection.prepareStatement(sb.toString(),
